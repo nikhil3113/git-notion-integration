@@ -18,6 +18,10 @@ const notion = new Client({
 
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.send("Webhook is running");
+});
+
 app.post("/webhook", async (req, res) => {
   const payload = req.body;
 
