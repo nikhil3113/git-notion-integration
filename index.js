@@ -25,15 +25,15 @@ app.get("/", (req, res) => {
 app.post("/webhook", async (req, res) => {
   const payload = req.body;
   const event = req.headers["x-github-event"];
-  
+
   console.log(`Received GitHub ${event} event`);
-  
+
   // Handle the initial ping event when webhook is first configured
   if (event === "ping") {
     console.log("Ping received from GitHub!");
     return res.status(200).send("Webhook configured successfully");
   }
-  
+
   // Handle push events with commits
   if (event === "push") {
     if (!payload.commits || !payload.repository) {
@@ -42,7 +42,9 @@ app.post("/webhook", async (req, res) => {
 
     try {
       const repoName = payload.repository.name;
-      console.log(`Processing ${payload.commits.length} commits from ${repoName}`);
+      console.log(
+        `Processing ${payload.commits.length} commits from ${repoName}`
+      );
 
       for (const commit of payload.commits) {
         const message = commit.message;
@@ -77,6 +79,11 @@ app.post("/webhook", async (req, res) => {
             },
             URL: {
               url: url,
+            },
+            Commit_Date: {
+              date: {
+                start: new Date(commit.timestamp).toISOString(),
+              },
             },
           },
         });
