@@ -1,6 +1,8 @@
 const express = require("express");
 const { Client } = require("@notionhq/client");
 
+require("dotenv").config();
+
 const app = express();
 
 if (!process.env.NOTION_API_KEY || !process.env.NOTION_DATABASE_ID) {
@@ -19,7 +21,7 @@ app.use(express.json());
 app.post("/webhook", async (req, res) => {
   const payload = req.body;
 
-  if (!payload.commit || !payload.repository) {
+  if (!payload.commits || !payload.repository) {
     return res.status(400).send("Invalid payload");
   }
 
@@ -37,14 +39,14 @@ app.post("/webhook", async (req, res) => {
         },
         properties: {
           Name: {
-            title: [
+            rich_text: [
               {
                 text: { content: message },
               },
             ],
           },
           Author: {
-            rich_text: [
+            title: [
               {
                 text: { content: author },
               },
