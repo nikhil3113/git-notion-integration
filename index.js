@@ -102,6 +102,12 @@ app.post("/webhook", async (req, res) => {
 
 app.post("/github-to-sheets", async (req, res) => {
   try {
+    const event = req.headers["x-github-event"];
+    if (event === "ping") {
+      console.log("Ping received from GitHub!");
+      return res.status(200).send("Webhook configured successfully");
+    }
+
     let parsedCredentials;
     try {
       if (
