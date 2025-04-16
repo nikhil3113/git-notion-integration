@@ -1,5 +1,6 @@
 const express = require("express");
 const { Client } = require("@notionhq/client");
+const { google } = require("googleapis");
 
 require("dotenv").config();
 
@@ -96,6 +97,75 @@ app.post("/webhook", async (req, res) => {
   } else {
     // Other event types that we're not handling
     return res.status(200).send("Event received but not processed");
+  }
+});
+
+app.post("/github-to-sheets", async (req, res) => {
+  try {
+    let parsedCredentials;
+    try {
+      if (
+        typeof process.env.GOOGLE_APPLICATION_CREDENTIALS === "string" &&
+        process.env.GOOGLE_APPLICATION_CREDENTIALS.trim().startsWith("{")
+      ) {
+        parsedCredentials = JSON.parse(
+          process.env.GOOGLE_APPLICATION_CREDENTIALS
+        );
+      }
+    } catch (parseError) {
+      console.error("Error parsing credentials JSON:", parseError);
+      return res.status(500).send("Failed to parse credentials");
+    }
+
+    const auth = new google.auth.GoogleAuth({
+      credentials: parsedCredentials,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: "v4", auth: client });
+
+    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+    const payload = req.body;
+
+    if (!payload.commits || !payload.repository) {
+      return res.status(400).send("Invalid payload");
+    }
+    const repoName = payload.repository.name;
+    console.log(
+      `Processing ${payload.commits.length} commits from ${repoName}`
+    );
+
+    const rows = payload.commits.map((commit) => {
+      // Determine type based on commit message content
+      let type = "frontend"; // Default
+      if (commit.message.toLowerCase().includes("backend")) {
+        type = "backend";
+      }
+
+      return [
+        commit.message,
+        type,
+        `Commit by ${commit.author.name}`,
+        new Date(commit.timestamp).toISOString().split("T")[0],
+      ];
+    });
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: "Nikhil!A49:D", // Changed to Nikhil tab starting at A49
+      valueInputOption: "USER_ENTERED",
+      insertDataOption: "INSERT_ROWS",
+      resource: {
+        values: rows,
+      },
+    });
+
+    res.status(200).send("Commits sent to Google Sheets");
+  } catch (error) {
+    console.error("Error processing webhook:", error);
+    return res.status(500).send("Internal Server Error");
   }
 });
 
