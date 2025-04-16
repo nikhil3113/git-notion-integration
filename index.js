@@ -135,40 +135,45 @@ app.post("/github-to-sheets", async (req, res) => {
 
     const payload = req.body;
 
-    if (!payload.commits || !payload.repository) {
-      return res.status(400).send("Invalid payload");
-    }
-    const repoName = payload.repository.name;
-    console.log(
-      `Processing ${payload.commits.length} commits from ${repoName}`
-    );
-
-    const rows = payload.commits.map((commit) => {
-      // Determine type based on commit message content
-      let type = "frontend"; // Default
-      if (commit.message.toLowerCase().includes("backend")) {
-        type = "backend";
+    if (event === "push") {
+      if (!payload.commits || !payload.repository) {
+        return res.status(400).send("Invalid payload");
       }
+      const repoName = payload.repository.name;
+      console.log(
+        `Processing ${payload.commits.length} commits from ${repoName}`
+      );
 
-      return [
-        commit.message,
-        type,
-        `Commit by ${commit.author.name}`,
-        new Date(commit.timestamp).toISOString().split("T")[0],
-      ];
-    });
+      const rows = payload.commits.map((commit) => {
+        // Determine type based on commit message content
+        let type = "frontend"; // Default
+        if (commit.message.toLowerCase().includes("backend")) {
+          type = "backend";
+        }
 
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: "Nikhil!A49:D", // Changed to Nikhil tab starting at A49
-      valueInputOption: "USER_ENTERED",
-      insertDataOption: "INSERT_ROWS",
-      resource: {
-        values: rows,
-      },
-    });
+        return [
+          commit.message,
+          type,
+          `Commit by ${commit.author.name}`,
+          new Date(commit.timestamp).toISOString().split("T")[0],
+        ];
+      });
 
-    res.status(200).send("Commits sent to Google Sheets");
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: "Nikhil!A49:D", // Changed to Nikhil tab starting at A49
+        valueInputOption: "USER_ENTERED",
+        insertDataOption: "INSERT_ROWS",
+        resource: {
+          values: rows,
+        },
+      });
+
+      res.status(200).send("Commits sent to Google Sheets");
+    } else {
+      // Other event types that we're not handling
+      return res.status(200).send("Event received but not processed");
+    }
   } catch (error) {
     console.error("Error processing webhook:", error);
     return res.status(500).send("Internal Server Error");
