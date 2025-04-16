@@ -146,9 +146,15 @@ app.post("/github-to-sheets", async (req, res) => {
 
       const rows = payload.commits.map((commit) => {
         // Determine type based on commit message content
-        let type = "frontend"; // Default
+        let type = "Frontend"; // Default
         if (commit.message.toLowerCase().includes("backend")) {
-          type = "backend";
+          type = "Backend";
+        } else if (commit.message.toLowerCase().includes("database")) {
+          type = "Database";
+        } else if (commit.message.toLowerCase().includes("documentation")) {
+          type = "Documentation";
+        } else if (commit.message.toLowerCase().includes("api")) {
+          type = "API";
         }
 
         return [
