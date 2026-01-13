@@ -144,7 +144,21 @@ app.post("/github-to-sheets", async (req, res) => {
         `Processing ${payload.commits.length} commits from ${repoName}`
       );
 
-      const rows = payload.commits.map((commit) => {
+      const rows = payload.commits.filter((commit)=>{
+        const authorName = commit.author?.name?.toLowerCase() || "";
+        const message = commit.message.toLowerCase();
+
+        if(!authorName.includes("nikhil")){
+          console.log(`exiting cause author name is not Nikhil it is ${authorName}`);
+          return false;
+        }      
+        
+      if (message.startsWith("merge pull request") ||message.startsWith("merge branch")){
+          console.log("Exiting cause it is a merge pull request")
+         return false;
+          }         
+        return true;
+      }).map((commit) => {
         // Determine type based on commit message content
         let type = "Frontend"; // Default
         if (commit.message.toLowerCase().includes("backend")) {
@@ -164,6 +178,11 @@ app.post("/github-to-sheets", async (req, res) => {
           new Date(commit.timestamp).toISOString().split("T")[0],
         ];
       });
+ 
+      if (rows.length === 0) {
+        console.log("No eligible commits to add");
+        return res.status(200).send("No eligible commits");
+       }
 
       await sheets.spreadsheets.values.append({
         spreadsheetId,
