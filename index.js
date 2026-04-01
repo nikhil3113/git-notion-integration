@@ -8,7 +8,7 @@ const app = express();
 
 if (!process.env.NOTION_API_KEY || !process.env.NOTION_DATABASE_ID) {
   console.error(
-    "Missing required environment variables: NOTION_API_KEY and/or NOTION_DATABASE_ID"
+    "Missing required environment variables: NOTION_API_KEY and/or NOTION_DATABASE_ID",
   );
   process.exit(1);
 }
@@ -44,7 +44,7 @@ app.post("/webhook", async (req, res) => {
     try {
       const repoName = payload.repository.name;
       console.log(
-        `Processing ${payload.commits.length} commits from ${repoName}`
+        `Processing ${payload.commits.length} commits from ${repoName}`,
       );
 
       for (const commit of payload.commits) {
@@ -115,7 +115,7 @@ app.post("/github-to-sheets", async (req, res) => {
         process.env.GOOGLE_APPLICATION_CREDENTIALS.trim().startsWith("{")
       ) {
         parsedCredentials = JSON.parse(
-          process.env.GOOGLE_APPLICATION_CREDENTIALS
+          process.env.GOOGLE_APPLICATION_CREDENTIALS,
         );
       }
     } catch (parseError) {
@@ -141,52 +141,59 @@ app.post("/github-to-sheets", async (req, res) => {
       }
       const repoName = payload.repository.name;
       console.log(
-        `Processing ${payload.commits.length} commits from ${repoName}`
+        `Processing ${payload.commits.length} commits from ${repoName}`,
       );
 
-      const rows = payload.commits.filter((commit)=>{
-        const authorName = commit.author?.name?.toLowerCase() || "";
-        const message = commit.message.toLowerCase();
+      const rows = payload.commits
+        .filter((commit) => {
+          const authorName = commit.author?.name?.toLowerCase() || "";
+          const message = commit.message.toLowerCase();
 
-        if(!authorName.includes("nikhil")){
-          console.log(`exiting cause author name is not Nikhil it is ${authorName}`);
-          return false;
-        }      
-        
-      if (message.startsWith("merge pull request") ||message.startsWith("merge branch")){
-          console.log("Exiting cause it is a merge pull request")
-         return false;
-          }         
-        return true;
-      }).map((commit) => {
-        // Determine type based on commit message content
-        let type = "Frontend"; // Default
-        if (commit.message.toLowerCase().includes("backend")) {
-          type = "Backend";
-        } else if (commit.message.toLowerCase().includes("database")) {
-          type = "Database";
-        } else if (commit.message.toLowerCase().includes("documentation")) {
-          type = "Documentation";
-        } else if (commit.message.toLowerCase().includes("api")) {
-          type = "API";
-        }
+          if (!authorName.includes("nikhil")) {
+            console.log(
+              `exiting cause author name is not Nikhil it is ${authorName}`,
+            );
+            return false;
+          }
 
-        return [
-          commit.message,
-          type,
-          `Commit by ${commit.author.name}`,
-          new Date(commit.timestamp).toISOString().split("T")[0],
-        ];
-      });
- 
+          if (
+            message.startsWith("merge pull request") ||
+            message.startsWith("merge branch")
+          ) {
+            console.log("Exiting cause it is a merge pull request");
+            return false;
+          }
+          return true;
+        })
+        .map((commit) => {
+          // Determine type based on commit message content
+          let type = "Frontend"; // Default
+          if (commit.message.toLowerCase().includes("backend")) {
+            type = "Backend";
+          } else if (commit.message.toLowerCase().includes("database")) {
+            type = "Database";
+          } else if (commit.message.toLowerCase().includes("documentation")) {
+            type = "Documentation";
+          } else if (commit.message.toLowerCase().includes("api")) {
+            type = "API";
+          }
+
+          return [
+            commit.message,
+            type,
+            `Commit by ${commit.author.name}`,
+            new Date(commit.timestamp).toISOString().split("T")[0],
+          ];
+        });
+
       if (rows.length === 0) {
         console.log("No eligible commits to add");
         return res.status(200).send("No eligible commits");
-       }
+      }
 
       await sheets.spreadsheets.values.append({
         spreadsheetId,
-        range: "Nikhil!A49:D", // Changed to Nikhil tab starting at A49
+        range: "Nikhil!A:D",
         valueInputOption: "USER_ENTERED",
         insertDataOption: "INSERT_ROWS",
         resource: {
