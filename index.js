@@ -143,6 +143,12 @@ app.post("/github-to-sheets", async (req, res) => {
       console.log(
         `Processing ${payload.commits.length} commits from ${repoName}`,
       );
+      const branchName = payload.ref
+        ? payload.ref.replace("refs/heads/", "")
+        : "unknown";
+      console.log(
+        `Processing ${payload.commits.length} commits from ${repoName} on branch ${branchName}`,
+      );
 
       const rows = payload.commits
         .filter((commit) => {
@@ -183,6 +189,7 @@ app.post("/github-to-sheets", async (req, res) => {
             type,
             `Commit by ${commit.author.name}`,
             new Date(commit.timestamp).toISOString().split("T")[0],
+            branchName,
           ];
         });
 
@@ -193,7 +200,7 @@ app.post("/github-to-sheets", async (req, res) => {
 
       await sheets.spreadsheets.values.append({
         spreadsheetId,
-        range: "Nikhil!A:D",
+        range: "Nikhil!A:E",
         valueInputOption: "USER_ENTERED",
         insertDataOption: "INSERT_ROWS",
         resource: {
