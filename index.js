@@ -198,14 +198,40 @@ app.post("/github-to-sheets", async (req, res) => {
         return res.status(200).send("No eligible commits");
       }
 
-      await sheets.spreadsheets.values.append({
+      const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+      const sheet = spreadsheet.data.sheets.find(
+        (s) => s.properties.title === "Nikhil",
+      );
+      if (!sheet) {
+        console.error("Sheet 'Nikhil' not found");
+        return res.status(400).send("Sheet 'Nikhil' not found");
+      }
+      const sheetId = sheet.properties.sheetId;
+
+      // Insert empty rows after the header (starting at row 2)
+      await sheets.spreadsheets.batchUpdate({
         spreadsheetId,
-        range: "Nikhil!A:E",
-        valueInputOption: "USER_ENTERED",
-        insertDataOption: "INSERT_ROWS",
         resource: {
-          values: rows,
+          requests: [
+            {
+              insertDimension: {
+                range: {
+                  sheetId,
+                  dimension: "ROWS",
+                  startIndex: 1,
+                  endIndex: 1 + rows.length,
+                },
+              },
+            },
+          ],
         },
+      });
+
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: "Nikhil!A2:E",
+        valueInputOption: "USER_ENTERED",
+        resource: { values: rows },
       });
 
       res.status(200).send("Commits sent to Google Sheets");
