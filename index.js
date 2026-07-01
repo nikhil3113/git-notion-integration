@@ -169,6 +169,11 @@ app.post("/github-to-sheets", async (req, res) => {
             console.log("Exiting cause it is a merge pull request");
             return false;
           }
+
+        if(branchName === "main"){
+          console.log("Exiting cause it is main branch");
+          return false;
+        }
           return true;
         })
         .map((commit) => {
