@@ -6,6 +6,10 @@ require("dotenv").config();
 
 const app = express();
 
+// ── In-memory commit SHA cache ──
+let knownSHAs = new Set();
+let cacheLoaded = false;
+
 if (!process.env.NOTION_API_KEY || !process.env.NOTION_DATABASE_ID) {
   console.error(
     "Missing required environment variables: NOTION_API_KEY and/or NOTION_DATABASE_ID",
@@ -150,10 +154,35 @@ app.post("/github-to-sheets", async (req, res) => {
         `Processing ${payload.commits.length} commits from ${repoName} on branch ${branchName}`,
       );
 
-      const rows = payload.commits
+      if (!cacheLoaded) {
+        try {
+          const shaResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: "Nikhil!F2:F",
+          });
+          (shaResponse.data.values || []).forEach((row) => {
+            if (row[0]) knownSHAs.add(row[0].trim());
+          });
+          cacheLoaded = true;
+          console.log(`Loaded ${knownSHAs.size} known SHAs from Google Sheets`);
+        } catch (error) {
+          console.error("Error loading known SHAs from Google Sheets:", error);
+        }
+      }
+
+      const seenInPayload = new Set();
+
+      const newRows = payload.commits
         .filter((commit) => {
+          const sha = commit.id;
           const authorName = commit.author?.name?.toLowerCase() || "";
           const message = commit.message.toLowerCase();
+
+          // Check cache and intra-payload set
+          if (knownSHAs.has(sha) || seenInPayload.has(sha)) {
+            console.log(`Duplicate skipped (SHA: ${sha})`);
+            return false;
+          }
 
           if (!authorName.includes("nikhil")) {
             console.log(
@@ -170,10 +199,12 @@ app.post("/github-to-sheets", async (req, res) => {
             return false;
           }
 
-        if(branchName === "main"){
-          console.log("Exiting cause it is main branch");
-          return false;
-        }
+          if (branchName === "main") {
+            console.log("Exiting cause it is main branch");
+            return false;
+          }
+
+          seenInPayload.add(sha);
           return true;
         })
         .map((commit) => {
@@ -195,10 +226,11 @@ app.post("/github-to-sheets", async (req, res) => {
             `Commit by ${commit.author.name}`,
             new Date(commit.timestamp).toISOString().split("T")[0],
             branchName,
+            commit.id, // SHA for tracking duplicates
           ];
         });
 
-      if (rows.length === 0) {
+      if (newRows.length === 0) {
         console.log("No eligible commits to add");
         return res.status(200).send("No eligible commits");
       }
@@ -224,7 +256,7 @@ app.post("/github-to-sheets", async (req, res) => {
                   sheetId,
                   dimension: "ROWS",
                   startIndex: 1,
-                  endIndex: 1 + rows.length,
+                  endIndex: 1 + newRows.length,
                 },
               },
             },
@@ -234,10 +266,14 @@ app.post("/github-to-sheets", async (req, res) => {
 
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: "Nikhil!A2:E",
+        range: "Nikhil!A2:F",
         valueInputOption: "USER_ENTERED",
-        resource: { values: rows },
+        resource: { values: newRows },
       });
+
+      for (const row of newRows) {
+        knownSHAs.add(row[5]); // SHA is at index 5
+      }
 
       res.status(200).send("Commits sent to Google Sheets");
     } else {
@@ -248,6 +284,12 @@ app.post("/github-to-sheets", async (req, res) => {
     console.error("Error processing webhook:", error);
     return res.status(500).send("Internal Server Error");
   }
+});
+
+app.post("/reload-cache", (req, res) => {
+  cacheLoaded = false;
+  knownSHAs = new Set();
+  res.send("Cache will reload on next webhook call");
 });
 
 const port = process.env.PORT || 3005;
