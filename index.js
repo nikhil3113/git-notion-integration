@@ -199,7 +199,7 @@ app.post("/github-to-sheets", async (req, res) => {
             return false;
           }
 
-          if (branchName === "main") {
+          if (branchName === "main" || branchName==="develop") {
             console.log("Exiting cause it is main branch");
             return false;
           }
